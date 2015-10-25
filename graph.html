@@ -24,36 +24,69 @@
     <script src="http://d3js.org/d3.v3.min.js"></script>
     <div id="container"></div>
     <script >
-    var peers = ["a","b","c","d","e","f","g","h","i"];
-    var peerlist = {
-      a: ["b","d","f","g"],
-      b: ["c","d","e"],
-      e: ["e","f","g","h"],
-      f: ["a","b","c","g"],
-      i: ["h"],
+    var swarm = {
+      a:{ratio:2.0,peerlist:["b","d","f","g"]},
+      b:{ratio:.5,peerlist:["c","d","e"]},
+      c:{ratio:0.0,peerlist:[]},
+      d:{ratio:0.1,peerlist:[]},
+      e:{ratio:0.2,peerlist:["e","f","g","h"]},
+      f:{ratio:0.4,peerlist:["a","b","c","g"]},
+      g:{ratio:2.0,peerlist:[]},
+      h:{ratio:1.0,peerlist:[]},
+      i:{ratio:1.0,peerlist:["h"]},
     };
+    /*
+    var peers = [
+      {id:"a",peerlist:["b","d","f","g"]},
+      {id:"b",peerlist:["c","d","e"]},
+      {id:"c",peerlist:[]},
+      {id:"d",peerlist:[]},
+      {id:"e",peerlist:["e","f","g","h"]},
+      {id:"f",peerlist:["a","b","c","g"]},
+      {id:"g",peerlist:[]},
+      {id:"h",peerlist:[]},
+      {id:"i",peerlist:["h"]},
+    ];
+    */
+    var colorUnfocused = '#4e5d6c';
     var colorInitializing = '#4e5d6c';
     var colorSeeding = '#5bc0de';
     var colorComplete = '#5cb85c';
     var colors = ['#d9534f','#df691a','#f0ad4e','#5cb85c'];
+    var colorscale = d3.scale.quantize().domain([0.0,1.0]).range(colors);
 
-    var swarm = {
+    var swarmGraph = {
       nodes: [],
       edges: [],
     };
 
-    swarm.nodes = _.map(peers,function(p, i){
+    var i = 0;
+    var n = _.size(swarm);
+    _.each(swarm,function(peer, id){
       // arrange nodes in a circle. This wont scale very well though...
-      return {
-        id: p,
-        label: p,
-        x: 100 * Math.cos(2 * i * Math.PI / peers.length),
-        y: 100 * Math.sin(2 * i * Math.PI / peers.length),
-        size: 5,
-        color: colorInitializing,
+      var color = colorscale(peer.ratio);
+      if (peer.ratio > 1.0) {
+        color = colorSeeding;
       }
+      swarmGraph.nodes.push({
+        id: id,
+        label: id + ' ratio: ' + peer.ratio,
+        x: 100 * Math.cos(2 * i * Math.PI / n),
+        y: 100 * Math.sin(2 * i * Math.PI / n),
+        size: 5,
+        color: color,
+      });
+      _.each(peer.peerlist,function(connPeer){
+        swarmGraph.edges.push({
+            id: id + '_' + connPeer,
+            target: connPeer,
+            source: id,
+        });
+      });
+      i++;
     });
 
+    /*
     swarm.edges = _.reduceRight(peerlist,function(memo, peers, peer){
       console.log(memo,peers,peer);
       return memo.concat(_.map(peers,function(p){
@@ -64,24 +97,61 @@
         };
       }));
     },[]);
+    */
 
-    console.log("nodes:",swarm.nodes);
-    console.log("edges:",swarm.edges);
+    console.log("nodes:",swarmGraph.nodes);
+    console.log("edges:",swarmGraph.edges);
 
-
-      
     // Let's first initialize sigma:
     var s = new sigma({
-      graph: swarm,
+      graph: swarmGraph,
       container: 'container',
       settings: {
         drawEdges: true,
         edgeColor: 'default',
-        defaultEdgeColor: colorComplete,
+        defaultEdgeColor: colorInitializing,
       }
     });
 
     s.refresh();
+
+    /*
+    s.bind('clickNode', function(e) {
+//TODO neighbors needs to be implemented
+      var nodeId = e.data.node.id,
+          toKeep = s.graph.neighbors(nodeId);
+      toKeep[nodeId] = e.data.node;
+
+      s.graph.nodes().forEach(function(n) {
+        if (toKeep[n.id])
+          n.color = n.originalColor;
+        else
+          n.color = colorUnfocused;
+      });
+
+      s.graph.edges().forEach(function(e) {
+        if (toKeep[e.source] && toKeep[e.target])
+          e.color = e.originalColor;
+        else
+          e.color = colorUnfocused;
+      });
+
+      // Since the data has been modified, we need to
+      // call the refresh method to make the colors
+      // update effective.
+      s.refresh();
+    });
+    */
+
+
+    /*
+    setTimeout(function(){
+      console.log("updating some things...");
+      //https://github.com/jacomyal/sigma.js/wiki/Graph-API
+      s.graph.dropNode('a');
+      s.refresh();
+    },2000);
+    */
     </script>
   </body>
 </html>
