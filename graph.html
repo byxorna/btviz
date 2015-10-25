@@ -78,12 +78,12 @@
         color: color,
       };
     }
-    function getGraphEdges(peer){
-      return _.map(peer.get('peerlist'),function(connPeer){
+    function getGraphEdges(peerid, peerlist){
+      return _.map(peerlist,function(connPeer){
         return {
-          id: peer.id + '_' + connPeer,
+          id: peerid + '_' + connPeer,
           target: connPeer,
-          source: peer.id,
+          source: peerid,
         };
       });
     }
@@ -127,7 +127,7 @@
       //var n = c.length;
       c.each(function(peer){
         graph.nodes.push(getGraphNode(peer));
-        _.each(getGraphEdges(peer), function(e){
+        _.each(getGraphEdges(peer.id, peer.get('peerlist')), function(e){
           graph.edges.push(e);
         });
       });
@@ -153,7 +153,7 @@
       console.log("added",x);
       stopAtlas();
       s.graph.addNode(getGraphNode(x));
-      _.each(getGraphEdges(x), function(e){
+      _.each(getGraphEdges(x.id, x.get('peerlist')), function(e){
         s.graph.addEdge(e);
       });
       s.refresh();
@@ -162,8 +162,31 @@
     swarm.on('remove',function(x){
       console.log("removed",x);
       s.graph.dropNode(x.id);
-      _.each(getGraphEdges(x), function(e){
+      _.each(getGraphEdges(x.id, x.get('peerlist')), function(e){
         s.graph.dropEdge(e);
+      });
+      s.refresh();
+    });
+    swarm.on('change',function(x){
+      // figure out what the added and removed graph edges are...
+      // x._previousAttributes.peerlist
+      var oldEdges = getGraphEdges(x.id, x._previousAttributes.peerlist);
+      var newEdges = getGraphEdges(x.id, x.get('peerlist'));
+      var added = _.difference(newEdges, oldEdges);
+      var removed = _.difference(oldEdges, newEdges);
+      //console.log("added edges",added);
+      //console.log("removed edges",removed);
+      // update node attributes
+      var n = s.graph.nodes(x.id);
+      var updates = getGraphNode(x);
+      n.color = updates.color;
+      n.label = updates.label;
+
+      _.each(removed,function(e){
+        s.graph.dropEdge(e.id);
+      });
+      _.each(added,function(e){
+        s.graph.addEdge(e);
       });
       s.refresh();
     });
@@ -184,10 +207,15 @@
       // start running the force sim by default
       startAtlasIfToggled();
 
-      // tick up ratios over time
-      setInterval(function(){
+      setTimeout(function(){
         // add a node randomly to the collection
-        swarm.add(new Peer({id:"k",peerlist:["c"],ratio:Math.random()}),{merge:true});
+        //TODO figure out how to make forceatlas2 update with new edges
+        //swarm.add(new Peer({id:"k",peerlist:["c"],ratio:Math.random()}),{merge:true});
+        var b = swarm.get('b');
+        b.set('peerlist',["a","c","d","e","f","g","h"]);
+        b.set('ratio',2.0);
+        console.log("updating b");
+        swarm.add(b,{merge:true});
         //s.refresh();
       },3000);
     });
