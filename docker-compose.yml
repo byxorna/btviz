@@ -1,0 +1,6 @@
+www:
+  build: .
+  volumes:
+    - .:/www
+  ports:
+    - 8080:8080

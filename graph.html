@@ -17,11 +17,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.2.3/backbone-min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bacon.js/0.7.77/Bacon.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/1.0.3/sigma.js"></script>
+    <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/1.0.3/sigma.js"></script>-->
+    <script src="public/sigma.min.js"></script>
+    <script src="public/plugins/sigma.layout.forceAtlas2.min.js"></script>
   </head>
   <body>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <script src="http://d3js.org/d3.v3.min.js"></script>
+    <button type="button" class="forcetoggle btn btn-primary" data-toggle="button">
+      Toggle Force Layout
+    </button>
     <div id="container"></div>
     <script >
     // track state here...
@@ -54,11 +59,12 @@
       if (peer.ratio > 1.0) {
         color = colorSeeding;
       }
+      // we dont care about x,y because we will let the forceatlas2 take care of that
       return {
         id: id,
         label: id + ' ratio: ' + peer.ratio,
-        x: 100 * Math.cos(2 * i * Math.PI / swarmsize),
-        y: 100 * Math.sin(2 * i * Math.PI / swarmsize),
+        x: Math.floor(Math.random()*100),
+        y: Math.floor(Math.random()*100),
         size: 5,
         color: color,
       };
@@ -104,13 +110,32 @@
       }
     });
 
-    s.refresh();
+    var forceConfig = {
+      barnesHutOptimize: true,  //should we use the algorithm's Barnes-Hut to improve repulsion's scalability (O(n²) to O(nlog(n)))? This is useful for large graph but harmful to small ones.
+      worker: false,    // without this, my laptop becomes unusable when running... :(
+      //iterationsPerRender: 10000,
+    };
 
-    // tick up ratios over time
-    setInterval(function(){
-      updateGraph(s, swarm);
+    $(document).ready(function(){
+      // run sigma
       s.refresh();
-    },1000);
+      $('.forcetoggle').on('click',function(e){
+        if (s.isForceAtlas2Running()){
+          s.stopForceAtlas2();
+        } else {
+          s.startForceAtlas2(forceConfig);
+        }
+      });
+
+      // https://github.com/jacomyal/sigma.js/tree/master/plugins/sigma.layout.forceAtlas2
+      s.startForceAtlas2(forceConfig);
+
+      // tick up ratios over time
+      setInterval(function(){
+        updateGraph(s, swarm);
+        s.refresh();
+      },1000);
+    });
 
     /*
     s.bind('clickNode', function(e) {
@@ -141,14 +166,6 @@
     */
 
 
-    /*
-    setTimeout(function(){
-      console.log("updating some things...");
-      //https://github.com/jacomyal/sigma.js/wiki/Graph-API
-      s.graph.dropNode('a');
-      s.refresh();
-    },2000);
-    */
     </script>
   </body>
 </html>
