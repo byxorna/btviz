@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="https://bootswatch.com/superhero/bootstrap.min.css">
+    <style>
+    body {
+      margin: 0;
+    }
+    #container {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+    }
+    </style>
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.2.3/backbone-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bacon.js/0.7.77/Bacon.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/1.0.3/sigma.js"></script>
+  </head>
+  <body>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <div id="container"></div>
+    <script >
+    var peers = ["a","b","c","d","e","f","g","h","i"];
+    var peerlist = {
+      a: ["b","d","f","g"],
+      b: ["c","d","e"],
+      e: ["e","f","g","h"],
+      f: ["a","b","c","g"],
+      i: ["h"],
+    };
+    var colorInitializing = '#4e5d6c';
+    var colorSeeding = '#5bc0de';
+    var colorComplete = '#5cb85c';
+    var colors = ['#d9534f','#df691a','#f0ad4e','#5cb85c'];
+
+    var swarm = {
+      nodes: [],
+      edges: [],
+    };
+
+    swarm.nodes = _.map(peers,function(p, i){
+      // arrange nodes in a circle. This wont scale very well though...
+      return {
+        id: p,
+        label: p,
+        x: 100 * Math.cos(2 * i * Math.PI / peers.length),
+        y: 100 * Math.sin(2 * i * Math.PI / peers.length),
+        size: 5,
+        color: colorInitializing,
+      }
+    });
+
+    swarm.edges = _.reduceRight(peerlist,function(memo, peers, peer){
+      console.log(memo,peers,peer);
+      return memo.concat(_.map(peers,function(p){
+        return {
+          id: peer + '_' + p,
+          source: peer,
+          target: p,
+        };
+      }));
+    },[]);
+
+    console.log("nodes:",swarm.nodes);
+    console.log("edges:",swarm.edges);
+
+
+      
+    // Let's first initialize sigma:
+    var s = new sigma({
+      graph: swarm,
+      container: 'container',
+      settings: {
+        drawEdges: true,
+        edgeColor: 'default',
+        defaultEdgeColor: colorComplete,
+      }
+    });
+
+    s.refresh();
+    </script>
+  </body>
+</html>
