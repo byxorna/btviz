@@ -24,6 +24,7 @@
     <script src="http://d3js.org/d3.v3.min.js"></script>
     <div id="container"></div>
     <script >
+    // track state here...
     var swarm = {
       a:{ratio:2.0,peerlist:["b","d","f","g"]},
       b:{ratio:.5,peerlist:["c","d","e"]},
@@ -35,19 +36,6 @@
       h:{ratio:1.0,peerlist:[]},
       i:{ratio:1.0,peerlist:["h"]},
     };
-    /*
-    var peers = [
-      {id:"a",peerlist:["b","d","f","g"]},
-      {id:"b",peerlist:["c","d","e"]},
-      {id:"c",peerlist:[]},
-      {id:"d",peerlist:[]},
-      {id:"e",peerlist:["e","f","g","h"]},
-      {id:"f",peerlist:["a","b","c","g"]},
-      {id:"g",peerlist:[]},
-      {id:"h",peerlist:[]},
-      {id:"i",peerlist:["h"]},
-    ];
-    */
     var colorUnfocused = '#4e5d6c';
     var colorInitializing = '#4e5d6c';
     var colorSeeding = '#5bc0de';
@@ -60,22 +48,38 @@
       edges: [],
     };
 
-    var i = 0;
-    var n = _.size(swarm);
-    _.each(swarm,function(peer, id){
-      // arrange nodes in a circle. This wont scale very well though...
+    // takes the peer object, and an index in the swarm (int)
+    function getGraphNode(id, peer, i, swarmsize){
       var color = colorscale(peer.ratio);
       if (peer.ratio > 1.0) {
         color = colorSeeding;
       }
-      swarmGraph.nodes.push({
+      return {
         id: id,
         label: id + ' ratio: ' + peer.ratio,
-        x: 100 * Math.cos(2 * i * Math.PI / n),
-        y: 100 * Math.sin(2 * i * Math.PI / n),
+        x: 100 * Math.cos(2 * i * Math.PI / swarmsize),
+        y: 100 * Math.sin(2 * i * Math.PI / swarmsize),
         size: 5,
         color: color,
+      };
+    }
+
+    // given the new state of the swarm, update all the graph nodes as needed
+    function updateGraph(sig, swarm){
+      var swarmsize = _.size(swarm);
+      _.each(sig.graph.nodes(),function(n, i){
+        swarm[n.id].ratio += 0.1
+        var newnode = getGraphNode(n.id,swarm[n.id],i,swarmsize);
+        n.label = newnode.label;
+        n.color = newnode.color;
       });
+    }
+
+    var i = 0;
+    var n = _.size(swarm);
+    _.each(swarm,function(peer, id){
+      // arrange nodes in a circle. This wont scale very well though...
+      swarmGraph.nodes.push(getGraphNode(id, peer,i,n));
       _.each(peer.peerlist,function(connPeer){
         swarmGraph.edges.push({
             id: id + '_' + connPeer,
@@ -85,19 +89,6 @@
       });
       i++;
     });
-
-    /*
-    swarm.edges = _.reduceRight(peerlist,function(memo, peers, peer){
-      console.log(memo,peers,peer);
-      return memo.concat(_.map(peers,function(p){
-        return {
-          id: peer + '_' + p,
-          source: peer,
-          target: p,
-        };
-      }));
-    },[]);
-    */
 
     console.log("nodes:",swarmGraph.nodes);
     console.log("edges:",swarmGraph.edges);
@@ -114,6 +105,12 @@
     });
 
     s.refresh();
+
+    // tick up ratios over time
+    setInterval(function(){
+      updateGraph(s, swarm);
+      s.refresh();
+    },1000);
 
     /*
     s.bind('clickNode', function(e) {
