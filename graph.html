@@ -170,24 +170,32 @@
     swarm.on('change',function(x){
       // figure out what the added and removed graph edges are...
       // x._previousAttributes.peerlist
-      var oldEdges = getGraphEdges(x.id, x._previousAttributes.peerlist);
-      var newEdges = getGraphEdges(x.id, x.get('peerlist'));
-      var added = _.difference(newEdges, oldEdges);
-      var removed = _.difference(oldEdges, newEdges);
-      //console.log("added edges",added);
-      //console.log("removed edges",removed);
+      if (x._previousAttributes.peerlist != undefined){
+        var oldEdges = getGraphEdges(x.id, x._previousAttributes.peerlist);
+        var oldEdgesIds = _.pluck(oldEdges,'id');
+        var newEdges = getGraphEdges(x.id, x.get('peerlist'));
+        var newEdgesIds = _.pluck(newEdges,'id');
+        var added = _.reject(newEdges, function(e){
+          return _.contains(oldEdgesIds,e.id);
+        });
+        var removed = _.reject(oldEdges, function(e){
+          return _.contains(newEdgesIds,e.id);
+        });
+        console.log("added edges",_.pluck(added,'id'));
+        console.log("removed edges",_.pluck(removed,'id'));
+        _.each(removed,function(e){
+          s.graph.dropEdge(e.id);
+        });
+        _.each(added,function(e){
+          s.graph.addEdge(e);
+        });
+      }
       // update node attributes
       var n = s.graph.nodes(x.id);
       var updates = getGraphNode(x);
       n.color = updates.color;
       n.label = updates.label;
 
-      _.each(removed,function(e){
-        s.graph.dropEdge(e.id);
-      });
-      _.each(added,function(e){
-        s.graph.addEdge(e);
-      });
       s.refresh();
     });
 
@@ -207,17 +215,18 @@
       // start running the force sim by default
       startAtlasIfToggled();
 
-      setTimeout(function(){
+      setInterval(function(){
         // add a node randomly to the collection
         //TODO figure out how to make forceatlas2 update with new edges
+        // right now, new edges are rendered but dont effect the force applied on nodes
         //swarm.add(new Peer({id:"k",peerlist:["c"],ratio:Math.random()}),{merge:true});
-        var b = swarm.get('b');
+        var b = swarm.sample();
         b.set('peerlist',["a","c","d","e","f","g","h"]);
-        b.set('ratio',2.0);
+        b.set('ratio',b.get('ratio')+0.1);
         console.log("updating b");
         swarm.add(b,{merge:true});
         //s.refresh();
-      },3000);
+      },2500);
     });
 
     </script>
