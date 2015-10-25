@@ -30,78 +30,116 @@
     <div id="container"></div>
     <script >
     // track state here...
-    var swarm = {
-      a:{ratio:2.0,peerlist:["b","d","f","g"]},
-      b:{ratio:.5,peerlist:["c","d","e"]},
-      c:{ratio:0.0,peerlist:[]},
-      d:{ratio:0.1,peerlist:[]},
-      e:{ratio:0.2,peerlist:["e","f","g","h"]},
-      f:{ratio:0.4,peerlist:["a","b","c","g"]},
-      g:{ratio:2.0,peerlist:[]},
-      h:{ratio:1.0,peerlist:[]},
-      i:{ratio:1.0,peerlist:["h"]},
-    };
+    var Peer = Backbone.Model.extend({
+      ratio: 0.0,
+      peerlist: [],
+    });
+    var Swarm = Backbone.Collection.extend({
+      model: Peer
+    });
+    var swarmInitial = [
+      {id:'a',ratio:2.0,peerlist:["b","d","f","g"]},
+      {id:'b',ratio:.5,peerlist:["c","d","e"]},
+      {id:'c',ratio:0.0,peerlist:[]},
+      {id:'d',ratio:0.1,peerlist:[]},
+      {id:'e',ratio:0.2,peerlist:["e","f","g","h"]},
+      {id:'f',ratio:0.4,peerlist:["a","b","c","g"]},
+      {id:'g',ratio:2.0,peerlist:[]},
+      {id:'h',ratio:1.0,peerlist:[]},
+      {id:'i',ratio:1.0,peerlist:["h"]},
+    ];
+
+    var forceToggledOn = true;
     var colorUnfocused = '#4e5d6c';
     var colorInitializing = '#4e5d6c';
     var colorSeeding = '#5bc0de';
     var colorComplete = '#5cb85c';
     var colors = ['#d9534f','#df691a','#f0ad4e','#5cb85c'];
     var colorscale = d3.scale.quantize().domain([0.0,1.0]).range(colors);
-
-    var swarmGraph = {
-      nodes: [],
-      edges: [],
+    // config for forceAtlas2
+    var forceConfig = {
+      worker: false,    // without this, my laptop becomes unusable when running... :(
+      //iterationsPerRender: 10000,
     };
 
     // takes the peer object, and an index in the swarm (int)
-    function getGraphNode(id, peer, i, swarmsize){
-      var color = colorscale(peer.ratio);
-      if (peer.ratio > 1.0) {
+    function getGraphNode(peer){
+      var color = colorscale(peer.get('ratio'));
+      if (peer.get('ratio') > 1.0) {
         color = colorSeeding;
       }
       // we dont care about x,y because we will let the forceatlas2 take care of that
       return {
-        id: id,
-        label: id + ' ratio: ' + peer.ratio,
-        x: Math.floor(Math.random()*100),
-        y: Math.floor(Math.random()*100),
+        id: peer.id,
+        label: peer.id + ' ratio: ' + peer.get('ratio'),
+        x: Math.random(),
+        y: Math.random(),
         size: 5,
         color: color,
       };
     }
+    function getGraphEdges(peer){
+      return _.map(peer.get('peerlist'),function(connPeer){
+        return {
+          id: peer.id + '_' + connPeer,
+          target: connPeer,
+          source: peer.id,
+        };
+      });
+    }
+
+    function killAtlas(){
+      //if (s.isForceAtlas2Running()){
+        s.killForceAtlas2();
+      //}
+    }
+    function stopAtlas(){
+      if (s.isForceAtlas2Running()){
+        s.stopForceAtlas2();
+      }
+    }
+    function startAtlasIfToggled(){
+      if (forceToggledOn && !s.isForceAtlas2Running()){
+        console.log(forceConfig);
+        s.startForceAtlas2(forceConfig);
+      }
+    }
 
     // given the new state of the swarm, update all the graph nodes as needed
+    /*
     function updateGraph(sig, swarm){
       var swarmsize = _.size(swarm);
       _.each(sig.graph.nodes(),function(n, i){
         swarm[n.id].ratio += 0.1
-        var newnode = getGraphNode(n.id,swarm[n.id],i,swarmsize);
+        var newnode = getGraphNode(swarm[n.id]);
         n.label = newnode.label;
         n.color = newnode.color;
       });
     }
+    */
 
-    var i = 0;
-    var n = _.size(swarm);
-    _.each(swarm,function(peer, id){
-      // arrange nodes in a circle. This wont scale very well though...
-      swarmGraph.nodes.push(getGraphNode(id, peer,i,n));
-      _.each(peer.peerlist,function(connPeer){
-        swarmGraph.edges.push({
-            id: id + '_' + connPeer,
-            target: connPeer,
-            source: id,
+    // generate a full graph from a backbone collection
+    function graphFromCollection(c){
+      var graph = {
+        nodes:[],
+        edges:[],
+      };
+      //var n = c.length;
+      c.each(function(peer){
+        graph.nodes.push(getGraphNode(peer));
+        _.each(getGraphEdges(peer), function(e){
+          graph.edges.push(e);
         });
       });
-      i++;
-    });
+      return graph;
+    }
 
-    console.log("nodes:",swarmGraph.nodes);
-    console.log("edges:",swarmGraph.edges);
+    // our backbone collection representing the swarm status
+    var swarm = new Swarm(swarmInitial);
 
     // Let's first initialize sigma:
     var s = new sigma({
-      graph: swarmGraph,
+      graph: graphFromCollection(swarm),
       container: 'container',
       settings: {
         drawEdges: true,
@@ -110,61 +148,49 @@
       }
     });
 
-    var forceConfig = {
-      barnesHutOptimize: true,  //should we use the algorithm's Barnes-Hut to improve repulsion's scalability (O(n²) to O(nlog(n)))? This is useful for large graph but harmful to small ones.
-      worker: false,    // without this, my laptop becomes unusable when running... :(
-      //iterationsPerRender: 10000,
-    };
+    // hook up add/remove/update handlers
+    swarm.on('add',function(x){
+      console.log("added",x);
+      stopAtlas();
+      s.graph.addNode(getGraphNode(x));
+      _.each(getGraphEdges(x), function(e){
+        s.graph.addEdge(e);
+      });
+      s.refresh();
+      startAtlasIfToggled();
+    });
+    swarm.on('remove',function(x){
+      console.log("removed",x);
+      s.graph.dropNode(x.id);
+      _.each(getGraphEdges(x), function(e){
+        s.graph.dropEdge(e);
+      });
+      s.refresh();
+    });
 
     $(document).ready(function(){
       // run sigma
       s.refresh();
       $('.forcetoggle').on('click',function(e){
-        if (s.isForceAtlas2Running()){
-          s.stopForceAtlas2();
+        forceToggledOn = !forceToggledOn;
+        if (forceToggledOn){
+          startAtlasIfToggled();
         } else {
-          s.startForceAtlas2(forceConfig);
+          stopAtlas();
         }
       });
 
       // https://github.com/jacomyal/sigma.js/tree/master/plugins/sigma.layout.forceAtlas2
-      s.startForceAtlas2(forceConfig);
+      // start running the force sim by default
+      startAtlasIfToggled();
 
       // tick up ratios over time
       setInterval(function(){
-        updateGraph(s, swarm);
-        s.refresh();
-      },1000);
+        // add a node randomly to the collection
+        swarm.add(new Peer({id:"k",peerlist:["c"],ratio:Math.random()}),{merge:true});
+        //s.refresh();
+      },3000);
     });
-
-    /*
-    s.bind('clickNode', function(e) {
-//TODO neighbors needs to be implemented
-      var nodeId = e.data.node.id,
-          toKeep = s.graph.neighbors(nodeId);
-      toKeep[nodeId] = e.data.node;
-
-      s.graph.nodes().forEach(function(n) {
-        if (toKeep[n.id])
-          n.color = n.originalColor;
-        else
-          n.color = colorUnfocused;
-      });
-
-      s.graph.edges().forEach(function(e) {
-        if (toKeep[e.source] && toKeep[e.target])
-          e.color = e.originalColor;
-        else
-          e.color = colorUnfocused;
-      });
-
-      // Since the data has been modified, we need to
-      // call the refresh method to make the colors
-      // update effective.
-      s.refresh();
-    });
-    */
-
 
     </script>
   </body>
