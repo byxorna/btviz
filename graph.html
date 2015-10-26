@@ -51,8 +51,9 @@
     ];
     */
     
-    var swarmInitial = [{id:"tree",ratio:1.0,peerlist:['1','2','3','4','5']}];
-    for (var i = 0 ; i < 1000 ; i++){
+    //var swarmInitial = [{id:"tree",ratio:1.0,peerlist:['1','2','3','4','5']}];
+    var swarmInitial = [];
+    for (var i = 0 ; i < 3000 ; i++){
       var r = null;
       var c = _.sample(['a','b','c'])
       swarmInitial.push({ id:''+i, ratio:r, peerlist:[]});
@@ -74,12 +75,28 @@
 
     // takes the peer object, and an index in the swarm (int)
     function getGraphNode(peer){
+      var i = swarm.indexOf(peer), n = swarm.length;
+      // compute xy coords for this peer in a box
+      var i = swarm.indexOf(peer);
+      var width = Math.floor(Math.sqrt(swarm.length));
+      var x = i%width, y = Math.floor(i/width);
+
+      /*
+      // compute xy coords in a circle
+      var x = 1*Math.cos(2*i/n * Math.PI), y = 1*Math.sin(2*i/n * Math.PI);
+      */
+
+      /*
+      // good for force directed layout
+      var x = Math.random(), y = Math.random();
+      */
+
       // we dont care about x,y because we will let the forceatlas2 take care of that
       return {
         id: peer.id,
         label: peer.id + ' ratio: ' + peer.get('ratio'),
-        x: Math.random(),
-        y: Math.random(),
+        x: x,
+        y: y,
         size: 1,
         color: getRatioColor(peer.get('ratio')),
       };
@@ -174,13 +191,13 @@
           // recompute edge colors
           n.color = getRatioColor(swarm.get(n.id).get('ratio'));
         });
-        s.graph.edges().forEach(function(edge) { 
+        s.graph.edges().forEach(function(edge) {
           // reset edge colors
           edge.color = colorUnfocused;
         });
         s.refresh();
       });
-  
+
       // hook up add/remove/update handlers
       swarm.on('add',function(x){
         console.log("added",x);
@@ -245,7 +262,6 @@
       // start running the force sim by default
       s.startForceAtlas2();
 
-      /*
       setInterval(function(){
         // add a node randomly to the collection
         //TODO figure out how to make forceatlas2 update with new edges
@@ -254,16 +270,17 @@
         //TODO drawing all these edges is hard on the CPU
         for (var i = 0 ; i < 5 ; i++ ){
           var b = swarm.sample();
+          /* adding edges gets VERY expensive at scale. should we not do it?
           // add a random edge to the peer list
           var newpeerid = _.pluck(swarm.sample(5),'id');
           b.set('peerlist',_.uniq(b.get('peerlist').concat(newpeerid)));
+          */
           b.set('ratio',b.get('ratio')+0.2);
           //console.log("updating b");
           swarm.add(b,{merge:true});
         }
         //s.refresh();
       },500);
-      */
     });
 
     </script>
