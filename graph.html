@@ -33,7 +33,7 @@
     var Peer = Backbone.Model.extend({ ratio: 0.0, peerlist: [], });
     var Swarm = Backbone.Collection.extend({ model: Peer });
 
-    /* debug swarm
+    /*
     var swarmInitial = [
       {id:'a',ratio:2.0,peerlist:["b","d","f","g"]},
       {id:'b',ratio:.5,peerlist:["c","d","e"]},
@@ -46,6 +46,7 @@
       {id:'i',ratio:1.0,peerlist:["h"]},
     ];
     */
+    
     var swarmInitial = [{id:"tree",ratio:1.0,peerlist:['1','2','3','4','5']}];
     for (var i = 0 ; i < 1000 ; i++){
       var r = null;
@@ -54,6 +55,7 @@
 
     var forceToggledOn = true;
     var colorUnfocused = '#4e5d6c';
+    var colorFocused = '#df691a';
     var colorInitializing = '#4e5d6c';
     var colorSeeding = '#5bc0de';
     var colorComplete = '#5cb85c';
@@ -67,15 +69,6 @@
 
     // takes the peer object, and an index in the swarm (int)
     function getGraphNode(peer){
-      var color = colorInitializing;    //default to initializing
-      var r = peer.get('ratio');
-      if (r != undefined || r != null){
-        if (peer.get('ratio') > 1.0) {
-          color = colorSeeding;
-        } else {
-          color = colorscale(peer.get('ratio'));
-        }
-      }
       // we dont care about x,y because we will let the forceatlas2 take care of that
       return {
         id: peer.id,
@@ -83,7 +76,7 @@
         x: Math.random(),
         y: Math.random(),
         size: 1,
-        color: color,
+        color: getRatioColor(peer.get('ratio')),
       };
     }
     function getGraphEdges(peerid, peerlist){
@@ -92,8 +85,21 @@
           id: peerid + '_' + connPeer,
           target: connPeer,
           source: peerid,
+          color: colorUnfocused,
         };
       });
+    }
+
+    function getRatioColor(ratio){
+      var color = colorInitializing;    //default to initializing
+      if (ratio != undefined && ratio != null){
+        if (ratio > 1.0) {
+          color = colorSeeding;
+        } else {
+          color = colorscale(ratio);
+        }
+      }
+      return color;
     }
 
     function killAtlas(){
@@ -155,10 +161,48 @@
         defaultEdgeColor: colorInitializing,
         singleHover: true,
         labelThreshold: 15,
-        labelSize: "proportional",
+        labelColor: 'node',
+        labelHoverBGColor: 'node',
+        //labelSize: "proportional",
       }
     });
     s.configForceAtlas2(forceConfig);
+    s.bind('clickNode',function(e){
+      // on click, highlight all adjacent nodes and edges
+      var nid = e.data.node.id;
+      var peer = swarm.get(nid);
+      if (peer){
+        var peerlist = peer.get('peerlist');
+        s.graph.nodes().forEach(function(n) {
+          if (n.id == nid || _.contains(peerlist, n.id) || _.contains(swarm.get(n.id).get('peerlist'),nid)){
+            //TODO make it just keep its color
+            n.color = getRatioColor(swarm.get(n.id).get('ratio'));
+          } else {
+            n.color = colorInitializing;
+          }
+        });
+        s.graph.edges().forEach(function(edge) {
+          // highlight edges on click
+          if (edge.source == nid || edge.target == nid){
+            edge.color = colorFocused;
+          } else {
+            edge.color = colorUnfocused;
+          }
+        });
+        s.refresh();
+      }
+    });
+    s.bind('clickStage',function(e){
+      s.graph.nodes().forEach(function(n) {
+        // recompute edge colors
+        n.color = getRatioColor(swarm.get(n.id).get('ratio'));
+      });
+      s.graph.edges().forEach(function(edge) { 
+        // reset edge colors
+        edge.color = colorUnfocused;
+      });
+      s.refresh();
+    });
 
     // hook up add/remove/update handlers
     swarm.on('add',function(x){
