@@ -37,28 +37,18 @@
     var Peer = Backbone.Model.extend({ ratio: 0.0, peerlist: [], });
     var Swarm = Backbone.Collection.extend({ model: Peer });
 
-    /*
-    var swarmInitial = [
-      {id:'a',ratio:2.0,peerlist:["b","d","f","g"]},
-      {id:'b',ratio:.5,peerlist:["c","d","e"]},
-      {id:'c',ratio:0.0,peerlist:[]},
-      {id:'d',ratio:0.1,peerlist:[]},
-      {id:'e',ratio:0.2,peerlist:["e","f","g","h"]},
-      {id:'f',ratio:0.4,peerlist:["a","b","c","g"]},
-      {id:'g',ratio:2.0,peerlist:[]},
-      {id:'h',ratio:null,peerlist:[]},
-      {id:'i',ratio:1.0,peerlist:["h"]},
-    ];
-    */
     
-    //var swarmInitial = [{id:"tree",ratio:1.0,peerlist:['1','2','3','4','5']}];
     var swarmInitial = [];
-    var swarmSize = 500;
+    var swarmSize = 100;
     console.log("Adding "+swarmSize+" peers into swarm");
     for (var i = 0 ; i < swarmSize ; i++){
       var r = null;
-      var c = _.sample(['a','b','c'])
-      swarmInitial.push({ id:''+i, ratio:r, peerlist:[]});
+      //select a random assortment of edges to peer with from 0..{1..3}
+      var peers = _.map(_.range(0,_.sample(_.range(1,3))), function(x){
+        return '' + Math.floor(Math.random()*swarmSize);
+      });
+      var peer = { id:''+i, ratio:r, peerlist: _.uniq(peers)};
+      swarmInitial.push(peer);
     }
 
     var forceToggledOn = true;
@@ -77,21 +67,21 @@
 
     // takes the peer object, and an index in the swarm (int)
     function getGraphNode(peer){
+      /*
       var i = swarm.indexOf(peer), n = swarm.length;
       // compute xy coords for this peer in a box
       var i = swarm.indexOf(peer);
       var width = Math.floor(Math.sqrt(swarm.length));
       var x = i%width, y = Math.floor(i/width);
+      */
 
       /*
       // compute xy coords in a circle
       var x = 1*Math.cos(2*i/n * Math.PI), y = 1*Math.sin(2*i/n * Math.PI);
       */
 
-      /*
       // good for force directed layout
       var x = Math.random(), y = Math.random();
-      */
 
       // we dont care about x,y because we will let the forceatlas2 take care of that
       return {
@@ -265,23 +255,17 @@
       s.startForceAtlas2();
 
       setInterval(function(){
-        // add a node randomly to the collection
-        //TODO figure out how to make forceatlas2 update with new edges
-        // right now, new edges are rendered but dont effect the force applied on nodes
-        //swarm.add(new Peer({id:"k",peerlist:["c"],ratio:Math.random()}),{merge:true});
-        //TODO drawing all these edges is hard on the CPU
         for (var i = 0 ; i < 5 ; i++ ){
           var b = swarm.sample();
           /* adding edges gets VERY expensive at scale. should we not do it? */
           // add a random edge to the peer list
-          var newpeerid = _.pluck(swarm.sample(5),'id');
-          b.set('peerlist',_.uniq(b.get('peerlist').concat(newpeerid)));
-          b.set('ratio',b.get('ratio')+0.2);
-          //console.log("updating b");
-          swarm.add(b,{merge:true});
+          var r = b.get('ratio');
+          if (r < 2.0){
+            b.set('ratio',b.get('ratio')+0.2);
+            swarm.add(b,{merge:true});
+          }
         }
-        //s.refresh();
-      },500);
+      },200);
     });
 
     </script>
