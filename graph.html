@@ -30,13 +30,10 @@
     <div id="container"></div>
     <script >
     // track state here...
-    var Peer = Backbone.Model.extend({
-      ratio: 0.0,
-      peerlist: [],
-    });
-    var Swarm = Backbone.Collection.extend({
-      model: Peer
-    });
+    var Peer = Backbone.Model.extend({ ratio: 0.0, peerlist: [], });
+    var Swarm = Backbone.Collection.extend({ model: Peer });
+
+    /* debug swarm
     var swarmInitial = [
       {id:'a',ratio:2.0,peerlist:["b","d","f","g"]},
       {id:'b',ratio:.5,peerlist:["c","d","e"]},
@@ -45,9 +42,15 @@
       {id:'e',ratio:0.2,peerlist:["e","f","g","h"]},
       {id:'f',ratio:0.4,peerlist:["a","b","c","g"]},
       {id:'g',ratio:2.0,peerlist:[]},
-      {id:'h',ratio:1.0,peerlist:[]},
+      {id:'h',ratio:null,peerlist:[]},
       {id:'i',ratio:1.0,peerlist:["h"]},
     ];
+    */
+    var swarmInitial = [{id:"tree",ratio:1.0,peerlist:['1','2','3','4','5']}];
+    for (var i = 0 ; i < 1000 ; i++){
+      var r = null;
+      swarmInitial.push({ id:''+i, ratio:r, peerlist:[], });
+    }
 
     var forceToggledOn = true;
     var colorUnfocused = '#4e5d6c';
@@ -64,9 +67,14 @@
 
     // takes the peer object, and an index in the swarm (int)
     function getGraphNode(peer){
-      var color = colorscale(peer.get('ratio'));
-      if (peer.get('ratio') > 1.0) {
-        color = colorSeeding;
+      var color = colorInitializing;    //default to initializing
+      var r = peer.get('ratio');
+      if (r != undefined || r != null){
+        if (peer.get('ratio') > 1.0) {
+          color = colorSeeding;
+        } else {
+          color = colorscale(peer.get('ratio'));
+        }
       }
       // we dont care about x,y because we will let the forceatlas2 take care of that
       return {
@@ -74,7 +82,7 @@
         label: peer.id + ' ratio: ' + peer.get('ratio'),
         x: Math.random(),
         y: Math.random(),
-        size: 5,
+        size: 1,
         color: color,
       };
     }
@@ -145,8 +153,12 @@
         drawEdges: true,
         edgeColor: 'default',
         defaultEdgeColor: colorInitializing,
+        singleHover: true,
+        labelThreshold: 15,
+        labelSize: "proportional",
       }
     });
+    s.configForceAtlas2(forceConfig);
 
     // hook up add/remove/update handlers
     swarm.on('add',function(x){
@@ -181,8 +193,7 @@
         var removed = _.reject(oldEdges, function(e){
           return _.contains(newEdgesIds,e.id);
         });
-        console.log("added edges",_.pluck(added,'id'));
-        console.log("removed edges",_.pluck(removed,'id'));
+        //console.log("added edges",_.pluck(added,'id'), "removed edges",_.pluck(removed,'id'));
         _.each(removed,function(e){
           s.graph.dropEdge(e.id);
         });
@@ -221,9 +232,11 @@
         // right now, new edges are rendered but dont effect the force applied on nodes
         //swarm.add(new Peer({id:"k",peerlist:["c"],ratio:Math.random()}),{merge:true});
         var b = swarm.sample();
-        b.set('peerlist',["a","c","d","e","f","g","h"]);
+        // add a random edge to the peer list
+        var newpeerid = swarm.sample().id;
+        b.set('peerlist',_.uniq(b.get('peerlist').concat(newpeerid)));
         b.set('ratio',b.get('ratio')+0.1);
-        console.log("updating b");
+        //console.log("updating b");
         swarm.add(b,{merge:true});
         //s.refresh();
       },2500);
