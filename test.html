@@ -20,18 +20,8 @@
     <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/1.0.3/sigma.js"></script>-->
     <script src="public/sigma.min.js"></script>
     <script src="public/plugins/sigma.layout.forceAtlas2.min.js"></script>
-  </head>
-  <body>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <script src="http://d3js.org/d3.v3.min.js"></script>
-    <div class="container-fluid">
-      <div class="row">
-        <button type="button" class="forcetoggle btn btn-primary" data-toggle="button">Toggle Force Layout</button>
-      </div>
-      <div class="row">
-        <div id="swarm-container"></div>
-      </div>
-    </div>
     <script >
     // track state here...
     var Peer = Backbone.Model.extend({ ratio: 0.0, peerlist: [], });
@@ -62,7 +52,7 @@
     // config for forceAtlas2
     var forceConfig = {
       worker: false,    // without this, my laptop becomes unusable when running... :(
-      //iterationsPerRender: 1,
+      iterationsPerRender: 100000,
     };
 
     // takes the peer object, and an index in the swarm (int)
@@ -234,7 +224,7 @@
         var updates = getGraphNode(x);
         n.color = updates.color;
         n.label = updates.label;
-  
+
         s.refresh();
       });
 
@@ -250,14 +240,12 @@
         }
       });
 
-      // https://github.com/jacomyal/sigma.js/tree/master/plugins/sigma.layout.forceAtlas2
       // start running the force sim by default
       s.startForceAtlas2();
 
       setInterval(function(){
         for (var i = 0 ; i < 5 ; i++ ){
           var b = swarm.sample();
-          /* adding edges gets VERY expensive at scale. should we not do it? */
           // add a random edge to the peer list
           var r = b.get('ratio');
           if (r < 2.0){
@@ -269,5 +257,16 @@
     });
 
     </script>
+
+  </head>
+  <body>
+    <div class="container-fluid">
+      <div class="row">
+        <button type="button" class="forcetoggle btn btn-primary" data-toggle="button">Toggle Force Layout</button>
+      </div>
+      <div class="row">
+        <div id="swarm-container"></div>
+      </div>
+    </div>
   </body>
 </html>
