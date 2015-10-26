@@ -7,7 +7,7 @@
     body {
       margin: 0;
     }
-    #container {
+    #swarm-container {
       position: absolute;
       width: 100%;
       height: 100%;
@@ -24,10 +24,14 @@
   <body>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <script src="http://d3js.org/d3.v3.min.js"></script>
-    <button type="button" class="forcetoggle btn btn-primary" data-toggle="button">
-      Toggle Force Layout
-    </button>
-    <div id="container"></div>
+    <div class="container-fluid">
+      <div class="row">
+        <button type="button" class="forcetoggle btn btn-primary" data-toggle="button">Toggle Force Layout</button>
+      </div>
+      <div class="row">
+        <div id="swarm-container"></div>
+      </div>
+    </div>
     <script >
     // track state here...
     var Peer = Backbone.Model.extend({ ratio: 0.0, peerlist: [], });
@@ -50,7 +54,8 @@
     var swarmInitial = [{id:"tree",ratio:1.0,peerlist:['1','2','3','4','5']}];
     for (var i = 0 ; i < 1000 ; i++){
       var r = null;
-      swarmInitial.push({ id:''+i, ratio:r, peerlist:[], });
+      var c = _.sample(['a','b','c'])
+      swarmInitial.push({ id:''+i, ratio:r, peerlist:[]});
     }
 
     var forceToggledOn = true;
@@ -64,7 +69,7 @@
     // config for forceAtlas2
     var forceConfig = {
       worker: false,    // without this, my laptop becomes unusable when running... :(
-      //iterationsPerRender: 10000,
+      //iterationsPerRender: 1,
     };
 
     // takes the peer object, and an index in the swarm (int)
@@ -102,36 +107,6 @@
       return color;
     }
 
-    function killAtlas(){
-      //if (s.isForceAtlas2Running()){
-        s.killForceAtlas2();
-      //}
-    }
-    function stopAtlas(){
-      if (s.isForceAtlas2Running()){
-        s.stopForceAtlas2();
-      }
-    }
-    function startAtlasIfToggled(){
-      if (forceToggledOn && !s.isForceAtlas2Running()){
-        console.log(forceConfig);
-        s.startForceAtlas2(forceConfig);
-      }
-    }
-
-    // given the new state of the swarm, update all the graph nodes as needed
-    /*
-    function updateGraph(sig, swarm){
-      var swarmsize = _.size(swarm);
-      _.each(sig.graph.nodes(),function(n, i){
-        swarm[n.id].ratio += 0.1
-        var newnode = getGraphNode(swarm[n.id]);
-        n.label = newnode.label;
-        n.color = newnode.color;
-      });
-    }
-    */
-
     // generate a full graph from a backbone collection
     function graphFromCollection(c){
       var graph = {
@@ -151,139 +126,144 @@
     // our backbone collection representing the swarm status
     var swarm = new Swarm(swarmInitial);
 
-    // Let's first initialize sigma:
-    var s = new sigma({
-      graph: graphFromCollection(swarm),
-      container: 'container',
-      settings: {
-        drawEdges: true,
-        edgeColor: 'default',
-        defaultEdgeColor: colorInitializing,
-        singleHover: true,
-        labelThreshold: 15,
-        labelColor: 'node',
-        labelHoverBGColor: 'node',
-        //labelSize: "proportional",
-      }
-    });
-    s.configForceAtlas2(forceConfig);
-    s.bind('clickNode',function(e){
-      // on click, highlight all adjacent nodes and edges
-      var nid = e.data.node.id;
-      var peer = swarm.get(nid);
-      if (peer){
-        var peerlist = peer.get('peerlist');
+    var s;
+    $(document).ready(function(){
+      // Let's first initialize sigma:
+      s = new sigma({
+        graph: graphFromCollection(swarm),
+        container: 'swarm-container',
+        settings: {
+          drawEdges: true,
+          edgeColor: 'default',
+          defaultEdgeColor: colorInitializing,
+          singleHover: true,
+          labelThreshold: 15,
+          labelColor: 'node',
+          labelHoverBGColor: 'node',
+          //labelSize: "proportional",
+        }
+      });
+      s.configForceAtlas2(forceConfig);
+      s.bind('clickNode',function(e){
+        // on click, highlight all adjacent nodes and edges
+        var nid = e.data.node.id;
+        var peer = swarm.get(nid);
+        if (peer){
+          var peerlist = peer.get('peerlist');
+          s.graph.nodes().forEach(function(n) {
+            if (n.id == nid || _.contains(peerlist, n.id) || _.contains(swarm.get(n.id).get('peerlist'),nid)){
+              //TODO make it just keep its color
+              n.color = getRatioColor(swarm.get(n.id).get('ratio'));
+            } else {
+              n.color = colorInitializing;
+            }
+          });
+          s.graph.edges().forEach(function(edge) {
+            // highlight edges on click
+            if (edge.source == nid || edge.target == nid){
+              edge.color = colorFocused;
+            } else {
+              edge.color = colorUnfocused;
+            }
+          });
+          s.refresh();
+        }
+      });
+      s.bind('clickStage',function(e){
         s.graph.nodes().forEach(function(n) {
-          if (n.id == nid || _.contains(peerlist, n.id) || _.contains(swarm.get(n.id).get('peerlist'),nid)){
-            //TODO make it just keep its color
-            n.color = getRatioColor(swarm.get(n.id).get('ratio'));
-          } else {
-            n.color = colorInitializing;
-          }
+          // recompute edge colors
+          n.color = getRatioColor(swarm.get(n.id).get('ratio'));
         });
-        s.graph.edges().forEach(function(edge) {
-          // highlight edges on click
-          if (edge.source == nid || edge.target == nid){
-            edge.color = colorFocused;
-          } else {
-            edge.color = colorUnfocused;
-          }
+        s.graph.edges().forEach(function(edge) { 
+          // reset edge colors
+          edge.color = colorUnfocused;
         });
         s.refresh();
-      }
-    });
-    s.bind('clickStage',function(e){
-      s.graph.nodes().forEach(function(n) {
-        // recompute edge colors
-        n.color = getRatioColor(swarm.get(n.id).get('ratio'));
       });
-      s.graph.edges().forEach(function(edge) { 
-        // reset edge colors
-        edge.color = colorUnfocused;
-      });
-      s.refresh();
-    });
-
-    // hook up add/remove/update handlers
-    swarm.on('add',function(x){
-      console.log("added",x);
-      stopAtlas();
-      s.graph.addNode(getGraphNode(x));
-      _.each(getGraphEdges(x.id, x.get('peerlist')), function(e){
-        s.graph.addEdge(e);
-      });
-      s.refresh();
-      startAtlasIfToggled();
-    });
-    swarm.on('remove',function(x){
-      console.log("removed",x);
-      s.graph.dropNode(x.id);
-      _.each(getGraphEdges(x.id, x.get('peerlist')), function(e){
-        s.graph.dropEdge(e);
-      });
-      s.refresh();
-    });
-    swarm.on('change',function(x){
-      // figure out what the added and removed graph edges are...
-      // x._previousAttributes.peerlist
-      if (x._previousAttributes.peerlist != undefined){
-        var oldEdges = getGraphEdges(x.id, x._previousAttributes.peerlist);
-        var oldEdgesIds = _.pluck(oldEdges,'id');
-        var newEdges = getGraphEdges(x.id, x.get('peerlist'));
-        var newEdgesIds = _.pluck(newEdges,'id');
-        var added = _.reject(newEdges, function(e){
-          return _.contains(oldEdgesIds,e.id);
-        });
-        var removed = _.reject(oldEdges, function(e){
-          return _.contains(newEdgesIds,e.id);
-        });
-        //console.log("added edges",_.pluck(added,'id'), "removed edges",_.pluck(removed,'id'));
-        _.each(removed,function(e){
-          s.graph.dropEdge(e.id);
-        });
-        _.each(added,function(e){
+  
+      // hook up add/remove/update handlers
+      swarm.on('add',function(x){
+        console.log("added",x);
+        s.graph.addNode(getGraphNode(x));
+        _.each(getGraphEdges(x.id, x.get('peerlist')), function(e){
           s.graph.addEdge(e);
         });
-      }
-      // update node attributes
-      var n = s.graph.nodes(x.id);
-      var updates = getGraphNode(x);
-      n.color = updates.color;
-      n.label = updates.label;
+        s.refresh();
+      });
+      swarm.on('remove',function(x){
+        console.log("removed",x);
+        s.graph.dropNode(x.id);
+        _.each(getGraphEdges(x.id, x.get('peerlist')), function(e){
+          s.graph.dropEdge(e);
+        });
+        s.refresh();
+      });
+      swarm.on('change',function(x){
+        // figure out what the added and removed graph edges are...
+        // x._previousAttributes.peerlist
+        if (x._previousAttributes.peerlist != undefined){
+          var oldEdges = getGraphEdges(x.id, x._previousAttributes.peerlist);
+          var oldEdgesIds = _.pluck(oldEdges,'id');
+          var newEdges = getGraphEdges(x.id, x.get('peerlist'));
+          var newEdgesIds = _.pluck(newEdges,'id');
+          var added = _.reject(newEdges, function(e){
+            return _.contains(oldEdgesIds,e.id);
+          });
+          var removed = _.reject(oldEdges, function(e){
+            return _.contains(newEdgesIds,e.id);
+          });
+          //console.log("added edges",_.pluck(added,'id'), "removed edges",_.pluck(removed,'id'));
+          _.each(removed,function(e){
+            s.graph.dropEdge(e.id);
+          });
+          _.each(added,function(e){
+            s.graph.addEdge(e);
+          });
+        }
+        // update node attributes
+        var n = s.graph.nodes(x.id);
+        var updates = getGraphNode(x);
+        n.color = updates.color;
+        n.label = updates.label;
+  
+        s.refresh();
+      });
 
-      s.refresh();
-    });
 
-    $(document).ready(function(){
       // run sigma
       s.refresh();
       $('.forcetoggle').on('click',function(e){
         forceToggledOn = !forceToggledOn;
         if (forceToggledOn){
-          startAtlasIfToggled();
+          s.startForceAtlas2();
         } else {
-          stopAtlas();
+          s.stopForceAtlas2();
         }
       });
 
       // https://github.com/jacomyal/sigma.js/tree/master/plugins/sigma.layout.forceAtlas2
       // start running the force sim by default
-      startAtlasIfToggled();
+      s.startForceAtlas2();
 
+      /*
       setInterval(function(){
         // add a node randomly to the collection
         //TODO figure out how to make forceatlas2 update with new edges
         // right now, new edges are rendered but dont effect the force applied on nodes
         //swarm.add(new Peer({id:"k",peerlist:["c"],ratio:Math.random()}),{merge:true});
-        var b = swarm.sample();
-        // add a random edge to the peer list
-        var newpeerid = swarm.sample().id;
-        b.set('peerlist',_.uniq(b.get('peerlist').concat(newpeerid)));
-        b.set('ratio',b.get('ratio')+0.1);
-        //console.log("updating b");
-        swarm.add(b,{merge:true});
+        //TODO drawing all these edges is hard on the CPU
+        for (var i = 0 ; i < 5 ; i++ ){
+          var b = swarm.sample();
+          // add a random edge to the peer list
+          var newpeerid = _.pluck(swarm.sample(5),'id');
+          b.set('peerlist',_.uniq(b.get('peerlist').concat(newpeerid)));
+          b.set('ratio',b.get('ratio')+0.2);
+          //console.log("updating b");
+          swarm.add(b,{merge:true});
+        }
         //s.refresh();
-      },2500);
+      },500);
+      */
     });
 
     </script>
