@@ -1,6 +1,17 @@
-www:
-  build: .
+files:
+  image: debian
   volumes:
     - .:/www
+www:
+  build: .
+  volumes_from:
+  - files
   ports:
     - 8080:8080
+webscale:
+  build: .
+  dockerfile: Dockerfile.webscaleaf
+  volumes_from:
+  - files
+  ports:
+  - 8888:80

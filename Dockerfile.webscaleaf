@@ -1,0 +1,4 @@
+FROM nginx
+RUN mkdir /www && rm -rf /usr/share/nginx/html && ln -sfn /www /usr/share/nginx/html
+COPY . /usr/share/nginx/html/
+
