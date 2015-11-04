@@ -1,13 +1,13 @@
 files:
   image: debian
   volumes:
-    - .:/www
+  - .:/www
 www:
   build: .
   volumes_from:
   - files
   ports:
-    - 8080:8080
+  - 8080:8080
 nginx:
   build: .
   dockerfile: 'Dockerfile.nginx-www'
